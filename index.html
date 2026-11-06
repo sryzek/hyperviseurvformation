@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hyperviseur de Planification des Formations</title>
+<style>
+:root{
+  --brand:#1f5fbf;
+  --brand-light: #eef4fc;
+  --brand-dark: #15458f;
+  --text:#222;
+  --muted:#666;
+  --ok:#1BAE70;
+  --warn:#F39C12;
+  --bad:#E74C3C;
+  --border:#dde2f1;
+  --ghost:#9aa3af;
+  --bg-panel: #f8f9fc;
+}
+
+*{box-sizing:border-box;}
+
+html,body{
+  margin:0; padding:0; font-family: 'Segoe UI', Calibri, Arial, sans-serif; color:var(--text);
+  font-size:12px; background: #f5f7fb; height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+}
+
+.wrap{ max-width:1600px; width: 100%; margin:0 auto; padding:6px 10px 0; display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* HEADER GLOBAL APP */
+.sticky-header-group { z-index: 50; background: #f5f7fb; padding: 6px 10px 0px; margin: -6px -10px 0; flex-shrink: 0; }
+.bar{ background:var(--brand); color:#fff; border-radius:10px; padding:10px 15px; box-shadow:0 3px 10px rgba(0,0,0,.15); margin-bottom:8px; position:relative; }
+.bar::after { content: ""; position: absolute; bottom: -6px; left: 0; width: 100%; height: 6px; background: linear-gradient(135deg, transparent 33.33%, #ffffff 33.33%, #ffffff 66.67%, transparent 66.67%), linear-gradient(45deg, transparent 33.33%, #ffffff 33.33%, #ffffff 66.67%, transparent 66.67%); background-size: 12px 12px; background-position: 0 bottom, 0 bottom; border-radius: 0 0 10px 10px; }
+.bar-inner{ display:flex; justify-content: space-between; align-items:center; }
+.title .name{ font-weight:900; font-size:20px; line-height:1.1; margin:0 auto 4px auto; }
+.title .intro-text { font-size: 11px; opacity: 0.95; line-height: 1.3; background: rgba(0,0,0,0.15); padding: 4px 8px; border-radius: 6px; }
+
+/* BARRE D'OUTILS */
+.toolbar-top { display: flex; gap: 8px; margin-top: 5px; justify-content: flex-end; align-items: center; }
+.btn { background: #fff; color: var(--brand); border: 1px solid #c8d7f0; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s; }
+.btn:hover { background: var(--brand-light); color: var(--brand-dark); border-color: var(--brand); }
+.btn-print { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+.btn-print:hover { background: #1a252f; color: #fff; }
+.auto-save-indicator { font-size: 11px; color: var(--ok); font-weight: bold; margin-right: auto; padding-left: 10px; opacity: 0; transition: opacity 0.5s; }
+
+/* --- NAVIGATION NIVEAU 1 (ONGLETS PRINCIPAUX) --- */
+.main-tabs { display: flex; gap: 5px; margin-top: 8px; border-bottom: 3px solid var(--brand); }
+.main-tab { padding: 10px 20px; background: #eef2fa; border: 1px solid var(--brand); border-bottom: none; border-radius: 8px 8px 0 0; font-weight: 900; color: var(--brand); font-size:13px; cursor: pointer; opacity:0.7; transition: all 0.2s; box-shadow: inset 0 -4px 6px rgba(0,0,0,0.02);}
+.main-tab:hover { opacity: 0.9; }
+.main-tab.active { background: #fff; color: var(--brand-dark); border-bottom: 3px solid #fff; margin-bottom: -3px; opacity:1; box-shadow: none;}
+
+.main-content { display: none; flex: 1; overflow: hidden; flex-direction: column; padding-top: 15px; }
+.main-content.active { display: flex; }
+
+/* --- WORKFLOW BAR (NIVEAU 2) --- */
+.workflow-container { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); flex-shrink: 0;}
+.workflow-desc { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-style: italic; display: flex; align-items: center; gap: 6px;}
+.workflow-desc::before { content: "ℹ️"; font-style: normal;}
+.workflow-bar { display: flex; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
+.step { flex: 1; position: relative; background: #eef2fa; color: #1f5fbf; padding: 10px 10px 10px 30px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 50%, calc(100% - 15px) 100%, 0 100%, 15px 50%); margin-right: -10px; cursor: pointer; transition: all 0.3s;}
+.step:first-child { clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 50%, calc(100% - 15px) 100%, 0 100%); padding-left: 15px; border-radius: 4px 0 0 4px; }
+.step:last-child { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 15px 50%); margin-right: 0; border-radius: 0 4px 4px 0;}
+.step:hover { background: #dde2f1; }
+.step.active { background: #1f5fbf; color: #fff; transform: scale(1.01); z-index: 10; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2);}
+.step.done { background: #1BAE70; color: #fff; }
+.step.done:hover { background: #16965f; }
+
+.sub-content { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.sub-content.active { display: flex; }
+
+/* COMPOSANTS UI COMMUNS */
+.box{ border:1px solid var(--border); border-radius:6px; padding:12px; background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); flex-shrink: 0; }
+.sect{ font-weight:900; font-size:11px; text-transform:uppercase; margin-bottom:8px; border-bottom: 2px solid #f0f0f0; padding-bottom: 4px; color: var(--brand); display: flex; align-items: center; justify-content: space-between;}
+.form-group { margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
+.form-group:last-child { border-bottom: none; }
+.form-group label { font-weight: 600; color: #444; font-size: 11px; display: flex; align-items: center; }
+.form-group input, .form-group select { width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size:11px; transition: border-color 0.2s;}
+.form-group input[type="number"] { width: 70px; text-align: right; font-weight: bold; }
+.form-group input[type="date"] { text-align: left; width: 100px; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px rgba(31,95,191,0.1);}
+.block-title { font-size: 10px; font-weight: bold; color: var(--ghost); text-transform: uppercase; margin: 8px 0 4px 0; }
+.btn-small { background: var(--brand); color: #fff; border: none; padding: 2px 4px; border-radius: 2px; cursor: pointer; font-size: 9px;}
+
+/* Tooltips stylisés */
+.tooltip { position: relative; display: inline-block; cursor: help; margin-left: auto; color: var(--brand); background: #e1e5f2; border-radius: 50%; width: 14px; height: 14px; text-align: center; line-height: 14px; font-size: 10px; font-weight: bold; flex-shrink:0;}
+.tooltip .tooltiptext { visibility: hidden; width: 220px; background-color: #333; color: #fff; text-align: left; border-radius: 4px; padding: 6px 8px; position: absolute; z-index: 200; bottom: 125%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; line-height: 1.3; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); text-transform: none; white-space: pre-wrap; }
+.tooltip .tooltiptext::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #333 transparent transparent transparent; }
+.tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #bdc3c7; border-radius: 4px; }
+
+/* ========================================= */
+/* ONGLET 1 : STRATÉGIE COPIL                */
+/* ========================================= */
+.grid-layout { display: grid; grid-template-columns: 360px 1fr; gap: 15px; flex: 1; min-height: 0; padding-bottom: 15px; }
+.left-col, .right-col { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 5px; }
+
+.box-strategy { border: 2px solid var(--brand); background: #f4f8ff; box-shadow: 0 3px 8px rgba(31,95,191,0.1); }
+.box-strategy .sect { border-bottom-color: rgba(31,95,191,0.2); }
+.calc-detail { font-size: 10px; color: var(--brand); background: #eef2fa; padding: 4px 8px; border-radius: 4px; text-align: right; margin-bottom: 8px; font-weight: 600; }
+.calc-detail-global { font-size: 11px; color: var(--text); background: #e6f9f0; border: 1px solid var(--ok); padding: 6px 8px; border-radius: 4px; margin-top: 8px; font-weight: 900; text-align: center; }
+
+.switch { position: relative; display: inline-block; width: 26px; height: 14px; margin-right: 8px; flex-shrink:0;}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .2s; border-radius: 14px;}
+.slider:before { position: absolute; content: ""; height: 10px; width: 10px; left: 2px; bottom: 2px; background-color: white; transition: .2s; border-radius: 50%;}
+input:checked + .slider { background-color: var(--ok); }
+input:checked + .slider:before { transform: translateX(12px); }
+
+.drag-list { list-style: none; padding: 0; margin: 0; }
+.drag-item { background: #fff; border: 1px solid #c8d7f0; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; cursor: grab; transition: all 0.2s;}
+.drag-item:active { cursor: grabbing; }
+.drag-item.inactive { opacity: 0.6; background: #fafafa; border-color: #e0e0e0; }
+.drag-item.inactive .badge-prio { background: #ccc; }
+.drag-item .badge-prio { background: var(--brand); color: #fff; font-weight: bold; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;}
+.drag-item-title { font-weight: 700; font-size: 11px; margin-bottom:2px;}
+.drag-item-desc { font-size: 9px; color: var(--muted); }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 15px; }
+.kpi-card { background: var(--bg-panel); border: 1px solid #dde2f1; border-radius: 6px; padding: 10px; text-align: center; }
+.kpi-title { font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+.kpi-val { font-size: 22px; font-weight: 900; color: var(--text); line-height: 1.1; }
+
+table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 10px;}
+table.data-table th, table.data-table td { border: 1px solid var(--border); padding: 6px; text-align: left; vertical-align: middle;}
+table.data-table th { background: #f1f3f9; font-weight: 700; text-transform: uppercase;}
+table.data-table td.num { text-align: right; font-weight: bold; }
+table.data-table tr.total-row { background: #eef2fa; font-weight: 900; color: var(--brand); }
+table.data-table tr.disabled-row { opacity: 0.5; font-style: italic; }
+
+.result-card { background: white; border: 1px solid #ecf0f1; border-left: 4px solid var(--brand); border-radius: 6px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+.result-card h4 { font-size: 12px; font-weight: 800; color: var(--brand); text-transform: uppercase; margin: 0 0 8px 0; display:flex; align-items:center; gap:6px;}
+
+/* ========================================= */
+/* SOUS-ONGLET 2.1 : VIVIERS                 */
+/* ========================================= */
+.info-header-block { background: #fdfdfd; border: 1px solid var(--border); border-radius: 6px; padding: 12px 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start; border-top: 3px solid var(--brand); flex-shrink:0;}
+.info-col { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px; }
+.info-col-wide { flex: 2; min-width: 300px; }
+.info-group { display: flex; align-items: center; gap: 8px; }
+.info-group label { font-weight: 700; color: #444; font-size: 11px; width: 60px; text-transform: uppercase;}
+.info-group input, .info-group textarea { flex: 1; border: 1px solid #ccc; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-family: inherit; }
+.info-group textarea { height: 44px; resize: none; }
+
+.textarea-vivier { width: 100%; font-family: monospace; font-size: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: none; overflow-wrap: normal; white-space: pre;}
+.textarea-vivier:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 2px rgba(31,95,191,0.1); }
+.help-text { font-size: 9px; color: var(--muted); font-style: italic; margin-top: 4px; display: block; }
+
+/* ========================================= */
+/* SOUS-ONGLET 2.2 : CASTING (MATRICE)       */
+/* ========================================= */
+.casting-layout { display: flex; flex-direction: row; flex: 1; min-height: 0; gap: 15px; padding-bottom: 10px; overflow:hidden;}
+.casting-left-col { width: 320px; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--border); border-radius: 6px; overflow:hidden; flex-shrink:0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);}
+.casting-right-col { flex: 1; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px; }
+
+/* Tree View */
+.tree-header { padding: 10px; background: var(--brand); color: white; font-weight: 900; font-size: 12px; display: flex; justify-content: space-between; align-items: center;}
+.tree-body { padding: 10px; overflow-y: auto; flex: 1; background: #fdfdfd; }
+.tree-folder { display: flex; align-items: center; gap: 6px; padding: 6px; background: #eef4fc; border: 1px solid #c8d7f0; border-radius: 4px; margin-bottom: 4px; font-weight: bold; cursor: pointer; color: var(--brand); transition: all 0.1s; user-select: none;}
+.tree-folder:hover { background: #dde2f1; }
+.tree-folder:active { transform: scale(0.99); }
+.tree-folder-icon { width: 16px; text-align: center; }
+.tree-children { margin-left: 20px; border-left: 1px dashed #ccc; padding-left: 6px; display: none; margin-bottom: 8px;}
+.tree-children.open { display: block; }
+.tree-agent { display: flex; align-items: center; gap: 6px; padding: 4px; font-size: 11px; margin-bottom: 2px; border-radius: 3px; cursor: grab; background: #fff; border: 1px solid transparent; user-select:none;}
+.tree-agent:hover { background: #fafafa; border-color: #eee; }
+.tree-agent:active { cursor: grabbing; }
+.tree-agent.excluded { text-decoration: line-through; color: #aaa; background: #f9f9f9; }
+.tree-agent.excluded span { cursor: not-allowed; }
+.agent-checkbox { cursor: pointer; margin: 0; }
+.drag-ghost { opacity: 0.5; background: #eef2fa !important; border: 1px dashed var(--brand) !important; }
+
+/* Fiches */
+.fiche-casting { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); flex-shrink: 0; transition: border-color 0.3s;}
+.fiche-casting.status-red { border: 2px solid var(--bad); }
+.fiche-casting.status-orange { border: 2px solid var(--warn); }
+.fiche-header { background: #f4f8ff; padding: 10px 15px; border-bottom: 2px solid var(--brand); display: flex; justify-content: space-between; align-items: center; }
+.fiche-title { font-weight: 900; font-size: 14px; color: var(--brand); }
+.fiche-meta { font-size: 10px; color: var(--muted); font-weight: 600; background: #fff; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); }
+.fiche-body { padding: 15px; display: flex; gap: 15px; }
+
+.slot-column { display: flex; flex-direction: column; gap: 6px; }
+.slot-title { font-size: 10px; font-weight: 800; color: var(--ghost); text-transform: uppercase; display: flex; justify-content: space-between;}
+.slot-dropzone { background: #fafafa; border: 2px dashed #dde2f1; border-radius: 6px; padding: 8px; min-height: 80px; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s; position: relative;}
+.slot-dropzone.drag-over { background: #eef4fc; border-color: var(--brand); }
+.slot-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; color: #aaa; font-style: italic; pointer-events: none; text-align: center; width: 90%;}
+
+.cast-badge { display: flex; justify-content: space-between; align-items: center; font-size: 10px; padding: 4px 6px; border-radius: 4px; background: #fff; border: 1px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); animation: pop 0.2s ease-out; cursor: help;}
+@keyframes pop { 0% { transform: scale(0.9); opacity: 0;} 100% { transform: scale(1); opacity: 1;} }
+.cast-badge.team-badge { border-left: 3px solid var(--brand); font-weight: bold; background: #fdfdfd;}
+.cast-badge.agent-badge { border-left: 3px solid #8e44ad; }
+.cast-del { background: none; border: none; color: var(--bad); cursor: pointer; font-size: 10px; padding: 0 2px; }
+.cast-del:hover { color: #c0392b; font-weight: bold; }
+
+.big-generate-btn { background: var(--ok); color: white; border: none; padding: 10px 20px; font-size: 13px; font-weight: 900; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 10px rgba(27,174,112,0.3); transition: all 0.2s; align-self: flex-start; display: flex; align-items: center; gap: 8px;}
+.big-generate-btn:hover { background: #148f5c; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(27,174,112,0.4);}
+
+.alert-message-fiche { font-size: 10px; font-weight: bold; color: var(--bad); margin-top: 4px; }
+.alert-message-fiche.warn { color: var(--warn); }
+
+/* ========================================= */
+/* SOUS-ONGLET 2.3 : KANBAN PROJECTION       */
+/* ========================================= */
+.planning-layout { display: flex; flex-direction: row; flex: 1; min-height: 0; gap: 10px; padding-bottom: 5px; align-items: stretch; overflow-x: auto; }
+.planning-center-col { flex: 1; display: flex; flex-direction: column; min-width: 400px; overflow: hidden; background: #fdfdfd; border-radius: 6px; }
+.board-container { flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 5px; }
+.board-wrapped { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: flex-start; padding-bottom: 15px; }
+
+.planning-right-col { width: 300px; min-width: 300px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-shrink: 0; padding-right: 4px; background: #f5f7fb; border-left: 2px solid #dde2f1; padding-left: 8px;}
+
+.column { background: #f0f3f8; min-width: 240px; max-width: 240px; flex: 1 1 240px; border-radius: 4px; display: flex; flex-direction: column; border: 1px solid var(--border); height: auto; }
+.column-header-date { padding: 6px; background: #e1e8f5; border-radius: 4px 4px 0 0; border-bottom: 2px solid var(--brand); font-weight: 900; font-size: 12px; color: var(--brand); text-align: center; }
+.column-body { padding: 6px; display: flex; flex-direction: column; gap: 6px; overflow-y: visible; }
+
+.session-block { background: #fff; border-radius: 4px; border: 1px solid #c8d7f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.session-header { padding: 4px; border-radius: 4px 4px 0 0; border-bottom: 1px solid #dde2f1; position: relative; display: flex; flex-direction: column; gap: 4px;}
+.session-header.status-green { border-bottom-color: var(--ok); background: #f4fdf8; }
+.session-header.status-orange { border-bottom-color: var(--warn); background: #fffcf5; }
+.session-header.status-red { border-bottom-color: var(--bad); background: #fdf5f5; }
+
+.inline-edit-row { display: flex; gap: 4px; align-items: center; justify-content: space-between; position: relative; }
+.inline-edit-row select, .inline-edit-row input { border: 1px solid #e0e6ed; background: #fff; font-size: 10px; font-weight: bold; color: var(--brand); padding: 1px 2px; border-radius: 2px; width: 100%;}
+.module-name-display { font-weight: 900; font-size: 11px; color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex:1;}
+.salle-select { color: var(--text) !important; font-weight: 600 !important; flex: 1; }
+
+.btn-ics { background: #0078D4; color: white; border: none; border-radius: 2px; font-size: 9px; padding: 2px 4px; cursor: pointer; font-weight:bold; display: flex; align-items: center; gap: 2px;}
+.btn-ics:hover { background: #005a9e; }
+.btn-del { background: #ffebee; color: var(--bad); border: 1px solid #ffcdd2; border-radius: 4px; font-size: 12px; cursor: pointer; padding:1px 4px; line-height: 1; flex-shrink: 0; width: 22px; text-align: center; transition: all 0.2s;}
+.btn-del:hover { background: var(--bad); color: white; border-color: var(--bad); }
+
+.alert-icon { position: absolute; top: -6px; right: -6px; font-size: 14px; cursor: help; background: #fff; border-radius: 50%; padding: 2px; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2); animation: pulse 2s infinite; display: flex; align-items: center; justify-content: center; height: 18px; width: 18px; line-height: 1;}
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+.alert-tooltip { visibility: hidden; width: 220px; background-color: #2c3e50; color: #fff; text-align: left; border-radius: 4px; padding: 8px; position: absolute; z-index: 100; top: 20px; right: 0; font-size: 10px; line-height: 1.3; box-shadow: 0 4px 12px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: normal; text-transform: none;}
+.alert-icon:hover .alert-tooltip { visibility: visible; opacity: 1; }
+.alert-item { margin-bottom: 4px; padding-left: 12px; text-indent: -12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;}
+.alert-item.err { color: #ffbaba; }
+.alert-item.warn { color: #ffe8a1; }
+
+.zone-title { font-size: 8px; text-transform: uppercase; color: var(--ghost); font-weight: 900; margin: 2px 4px 1px; letter-spacing: 0.5px; display:flex; justify-content:space-between; align-items:center;}
+.zone-drop { padding: 2px 4px 4px; min-height: 25px; background: #fafafa; border-radius: 0 0 4px 4px; }
+.zone-drop[data-accept="formateur"] { border-bottom: 1px dashed #ccc; border-radius: 0; min-height: 28px; background: #fdfdfd; }
+
+.actor-card { background: white; padding: 2px 4px; margin-bottom: 2px; border-radius: 2px; border: 1px solid #dcdde1; cursor: grab; font-size: 10px; line-height:1.1; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 1px rgba(0,0,0,0.02); transition: all 0.1s;}
+.actor-card:active { cursor: grabbing; }
+.actor-card.selected { background-color: #eef4fc; border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.actor-card[data-type="formateur"] { border-left: 3px solid #8e44ad; font-weight: bold; }
+.actor-card[data-type="apprenant"] { border-left: 3px solid var(--brand); color: #333; }
+.actor-icon { font-size: 10px; }
+
+.dates-libres-container { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+.date-badge { background: #fff; color: var(--brand); border: 1px solid #c8d7f0; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; cursor: default; }
+
+@media print {
+  html, body { height: auto !important; overflow: visible !important; display: block !important; background: #fff !important; font-size: 11px !important; }
+  .wrap { height: auto !important; overflow: visible !important; display: block !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important;}
+  .sticky-header-group, .main-tabs, .workflow-container, .toolbar-top, .tooltip, .drag-handle { display: none !important; }
+  .box-strategy { border: 1px solid #ccc !important; box-shadow: none !important; }
+  .info-header-block { border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: 10px !important; padding: 10px !important; break-inside: avoid; }
+  .info-group input, .info-group textarea { border: none !important; padding: 0 !important; font-size: 11px !important; background: transparent !important;}
+  .grid-layout { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 15px !important; overflow: visible !important; padding-bottom: 0 !important;}
+  .box { border: 1px solid #ccc !important; box-shadow: none !important; padding: 10px !important; break-inside: avoid; margin: 0 !important; }
+  table.data-table th, table.data-table td { padding: 4px !important; font-size: 10px !important;}
+  #main-2 { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="sticky-header-group">
+    <div class="bar">
+      <div class="bar-inner">
+        <div class="title">
+          <div class="name">Hyperviseur de Planification des Formations</div>
+          <div class="intro-text">Onglet 1 : Paramétrez vos hypothèses (COPIL). Onglet 2 : Suivez le workflow pour générer les invitations.</div>
+        </div>
+        <div class="toolbar-top">
+          <span class="auto-save-indicator" id="saveIndicator">✓ Enregistré</span>
+          <button class="btn" onclick="document.getElementById('jsonInput').click()">📂 Charger JSON</button>
+          <button class="btn" onclick="exportSimulationJson()">💾 Exporter la simulation (.json)</button>
+          <button class="btn btn-print" onclick="window.print()">🖨️ Générer PDF (Note COPIL)</button>
+          <input type="file" id="jsonInput" accept=".json" style="display:none;" onchange="importSimulationJson(event)">
+        </div>
+      </div>
+    </div>
+    
+    <!-- NAVIGATION NIVEAU 1 -->
+    <div class="main-tabs">
+      <button class="main-tab active" onclick="openMain(1)">1. Stratégie Logistique (COPIL)</button>
+      <button class="main-tab" onclick="openMain(2)">2. Planification des Formations</button>
+    </div>
+  </div> 
+
+  <!-- ==================== MAIN 1 : STRATÉGIE COPIL ==================== -->
+  <div id="main-1" class="main-content active">
+    
+    <div class="info-header-block" id="box-infos">
+      <div style="width: 100%; font-weight: 900; font-size: 11px; text-transform: uppercase; color: var(--brand); margin-bottom: -5px; border-bottom: 2px solid #f0f0f0; padding-bottom: 4px; display:flex; justify-content:space-between;">
+        MÉTA-DONNÉES DE LA CAMPAGNE
+      </div>
+      <div class="info-col">
+        <div class="info-group"><label>Projet</label><input type="text" id="inpSimProjet" value="Déploiement e-GF" oninput="handleParamChange()"></div>
+        <div class="info-group"><label>Auteur</label><input type="text" id="inpSimAuteur" value="Stéphane RYZEK" oninput="handleParamChange()"></div>
+      </div>
+      <div class="info-col">
+        <div class="info-group"><label>Date Début</label><input type="date" id="inpDateDebut" value="2026-11-16" onchange="handleParamChange()"></div>
+        <div class="info-group"><label>Date Fin</label><input type="date" id="inpDateFin" value="2027-01-29" onchange="handleParamChange()"></div>
+      </div>
+      <div class="info-col info-col-wide">
+        <div class="info-group"><label>Objectif</label><textarea id="inpSimCommentaire" oninput="handleParamChange()">Garantir la formation des 450 agents avec une continuité de service stricte (Règle des 50%).</textarea></div>
+      </div>
+    </div>
+
+    <div class="grid-layout">
+      <!-- Colonne Gauche -->
+      <div class="left-col">
+        <div class="box box-strategy">
+          <div class="sect">ORDRE DE MOBILISATION LOGISTIQUE</div>
+          <ul class="drag-list" id="strategy-list">
+            <li class="drag-item" draggable="true" data-id="distanciel">
+              <label class="switch"><input type="checkbox" checked onchange="toggleLevier(this)"><span class="slider"></span></label>
+              <div class="drag-handle">☰</div>
+              <div class="badge-prio">1</div>
+              <div><div class="drag-item-title">Formation à distance</div><div class="drag-item-desc">Classes virtuelles Teams (Coût 0€).</div></div>
+            </li>
+            <li class="drag-item" draggable="true" data-id="existant">
+              <label class="switch"><input type="checkbox" checked onchange="toggleLevier(this)"><span class="slider"></span></label>
+              <div class="drag-handle">☰</div>
+              <div class="badge-prio">2</div>
+              <div><div class="drag-item-title">Salles existantes</div><div class="drag-item-desc">Locaux équipés (Ressource interne).</div></div>
+            </li>
+            <li class="drag-item" draggable="true" data-id="cabler">
+              <label class="switch"><input type="checkbox" checked onchange="toggleLevier(this)"><span class="slider"></span></label>
+              <div class="drag-handle">☰</div>
+              <div class="badge-prio">3</div>
+              <div><div class="drag-item-title">Salles aménagées</div><div class="drag-item-desc">Aménagement interne (CAPEX).</div></div>
+            </li>
+            <li class="drag-item" draggable="true" data-id="externe">
+              <label class="switch"><input type="checkbox" checked onchange="toggleLevier(this)"><span class="slider"></span></label>
+              <div class="drag-handle">☰</div>
+              <div class="badge-prio">4</div>
+              <div><div class="drag-item-title">Prestataire externe</div><div class="drag-item-desc">Location au jour (OPEX).</div></div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="box">
+          <div class="sect">BESOIN CAPACITAIRE MACRO</div>
+          <div class="form-group"><label>Effectif total</label><input type="number" id="inpAgentsTotal" value="450" oninput="handleParamChange()"></div>
+          <div class="form-group"><label>Jauge Moyenne</label><input type="number" id="inpGroupSizeTotal" value="10" oninput="handleParamChange()"></div>
+          <div class="form-group"><label>Durée cursus moy.</label><input type="number" id="inpDurationTotal" value="3" oninput="handleParamChange()"></div>
+          <div class="calc-detail-global" id="lblBesoinTotalCalc">Besoin Global : 0 jours-salle</div>
+          
+          <div class="form-group" style="margin-top:8px;"><label>Salles Existantes Dispos</label><input type="number" id="inpSallesDispo" value="3" oninput="handleParamChange()"></div>
+          <div class="form-group"><label>Plafond Aménagement</label><input type="number" id="inpPlafondCabler" value="0" oninput="handleParamChange()"></div>
+          <div class="form-group" style="margin-top:8px;"><label>Coût Aménagement (€)</label><input type="number" id="inpCoutEquip" value="5000" oninput="handleParamChange()"></div>
+          <div class="form-group"><label>Coût Externe/Jour (€)</label><input type="number" id="inpCoutExt" value="300" oninput="handleParamChange()"></div>
+        </div>
+      </div>
+
+      <!-- Colonne Droite -->
+      <div class="right-col">
+        <div class="box">
+          <div class="sect">SYNTHÈSE BUDGETAIRE & CAPACITAIRE</div>
+          <div class="kpi-grid">
+            <div class="kpi-card" style="border-top: 4px solid #3498db;"><div class="kpi-title">Investissement (CAPEX)</div><div class="kpi-val" id="kpiCapex" style="color:#3498db;">0 €</div></div>
+            <div class="kpi-card" style="border-top: 4px solid #e67e22;"><div class="kpi-title">Fonctionnement (OPEX)</div><div class="kpi-val" id="kpiOpex" style="color:#e67e22;">0 €</div></div>
+            <div class="kpi-card" style="border-top: 4px solid var(--brand); background: #eef2fa;"><div class="kpi-title">Budget Consolidé</div><div class="kpi-val" style="color:var(--brand);" id="kpiBudget">0 €</div></div>
+          </div>
+          <table class="data-table" id="tableCascade">
+            <thead><tr><th>Prio.</th><th>Moyen de formation</th><th class="num">Jours Couverts</th><th class="num">Reste</th><th class="num">Coût</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div class="result-card" style="border-left-color: #34495e; margin-top:10px;">
+            <div id="plaquette-note-text" style="font-size: 13px; line-height: 1.5; color: #2c3e50;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN 2 : PLANIFICATION ==================== -->
+  <div id="main-2" class="main-content">
+      
+      <!-- NAVIGATION NIVEAU 2 : WORKFLOW BAR -->
+      <div class="workflow-container">
+          <div class="workflow-desc">
+              Workflow de Planification : Suivez ces 3 étapes séquentielles pour construire votre planning. Commencez par importer vos viviers, constituez vos groupes de formation, puis laissez le moteur mathématique générer les sessions sans conflits.
+          </div>
+          <div class="workflow-bar">
+              <div class="step active" id="step-1" onclick="openSub(1)">1. Contexte & Viviers</div>
+              <div class="step" id="step-2" onclick="openSub(2)">2. Matrice des Affectations</div>
+              <div class="step" id="step-3" onclick="openSub(3)">3. Projection du Planning</div>
+          </div>
+      </div>
+      
+      <!-- SOUS-ONGLET 2.1 : VIVIERS -->
+      <div id="sub-1" class="sub-content active">
+        <div class="box" style="background:#fdfdfd; border-top: 3px solid var(--brand); flex:1; display:flex; flex-direction:column; overflow-y:auto;">
+           <div class="sect" style="color:var(--brand);">📦 IMPORTATION DES VIVIERS DE DONNÉES BRUTES</div>
+           <div style="font-size:11px; color:#666; margin-bottom:15px;">Copiez-collez vos données depuis Excel. Le système mettra automatiquement à jour l'arbre des équipes et les listes déroulantes de la Matrice.</div>
+           
+           <div style="display:flex; width:100%; gap:15px; flex:1;">
+               <div style="flex:1; display:flex; flex-direction:column;">
+                   <div style="font-weight:bold; font-size:11px; margin-bottom:4px;">Catalogue Formations</div>
+                   <textarea class="textarea-vivier" id="txtFormations" style="flex:1;" oninput="triggerAutoSave()">Formateurs internes S1 à S4;12;10
+Sessions plénières - Présentation e-GF;1;50
+Administrateurs fonctionnels;4;10
+Budget;4;10
+Inventaire;1;10
+Comptabilité;3;10
+Marchés;6;10
+Reporting;4;10
+Formation technique;1;10</textarea>
+                   <span class="help-text">Format attendu : Intitulé; Durée (jours); Jauge max</span>
+               </div>
+               <div style="flex:1; display:flex; flex-direction:column;">
+                   <div style="font-weight:bold; font-size:11px; margin-bottom:4px;">Salles Logistiques</div>
+                   <textarea class="textarea-vivier" id="txtSalles" style="flex:1;" oninput="triggerAutoSave()">"Salle n°1 - Debierre"
+"Salle n°2 - Debierre"
+"Salle n°3 - Debierre"</textarea>
+                   <span class="help-text">Format attendu : Un nom de salle par ligne</span>
+               </div>
+               <div style="flex:2; display:flex; flex-direction:column;">
+                   <div style="font-weight:bold; font-size:11px; margin-bottom:4px;">Acteurs (Apprenants & Formateurs)</div>
+                   <textarea class="textarea-vivier" id="txtApprenants" style="flex:1;" oninput="triggerAutoSave()">RYZEK;STEPHANE;sryzek@mairie-lille.fr;Equipe Tech
+VANDERHAEGHE;CARINE;cvanderhaeghe@mairie-lille.fr;Equipe Admin
+CAPILLI;SYLVAIN;scapilli@mairie-lille.fr;Equipe Budget
+BEART;JEAN-BAPTISTE;jbbeard@mairie-lille.fr;Equipe Budget
+EXPERT;ATOS;expert@atos.net;Equipe ATOS
+MARTIN;Jean;agent.lille1@mairie-lille.fr;Equipe Lille Alpha
+BERNARD;Pierre;agent.lomme1@mairie-lomme.fr;Equipe Lomme Beta
+THOMAS;Nathalie;agent.hell1@mairie-hellemmes.fr;Equipe Hellemmes Gamma</textarea>
+                   <span class="help-text">Format attendu : Nom; Prénom; Email; Equipe (Copiez l'export SIRH ici)</span>
+               </div>
+           </div>
+        </div>
+      </div>
+      
+      <!-- SOUS-ONGLET 2.2 : CASTING -->
+      <div id="sub-2" class="sub-content">
+        <div class="casting-layout">
+            <!-- ARBRE DES EQUIPES -->
+            <div class="casting-left-col">
+                <div class="tree-header">
+                    🌳 Annuaire des Équipes
+                    <span id="tree-counter" style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 10px; font-size: 10px;">0 agents</span>
+                </div>
+                <div class="tree-body" id="tree-container">
+                    <!-- Arbre généré en JS -->
+                </div>
+                <div style="padding: 10px; background: #fafafa; border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); text-align: center;">
+                    Astuce : Décochez la case d'un agent pour l'exclure de la campagne.
+                </div>
+            </div>
+
+            <!-- FICHES DE CADRAGE -->
+            <div class="casting-right-col" style="position: relative;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                    <div>
+                        <h2 style="margin: 0; color: var(--brand); font-size: 16px;">Matrice : Qui est formé à quoi ?</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--muted);">Glissez les dossiers d'équipes ou les agents individuels vers les fiches pour constituer les groupes.</p>
+                    </div>
+                    <button class="big-generate-btn" onclick="lancerGenerationPlanning()">⚙️ Générer la Projection du Planning ➔</button>
+                </div>
+
+                <div id="casting-cards-container" style="display: flex; flex-direction: column; gap: 15px;">
+                    <!-- Fiches générées en JS -->
+                </div>
+            </div>
+        </div>
+      </div>
+      
+      <!-- SOUS-ONGLET 2.3 : KANBAN -->
+      <div id="sub-3" class="sub-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div style="font-weight:bold; font-size:14px; color:var(--brand);">Tableau Kanban d'Ordonnancement</div>
+            <button class="btn btn-success" onclick="exporterPlanningCSV()">⬇️ Exporter le Planning Complet (CSV)</button>
+        </div>
+        <div class="planning-layout">
+            <!-- KANBAN BOARD -->
+            <div class="planning-center-col">
+                <div class="board-container">
+                  <div id="kanban-board" class="board-wrapped">
+                     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; color:#999; margin-top:30px; text-align:center;">
+                        <div style="font-size: 30px; margin-bottom: 10px;">⚙️</div>
+                        <p style="font-size: 13px;">Le planning est vide.<br>Rendez-vous à l'<b>Étape 2.2</b> pour remplir vos fiches et lancer la génération.</p>
+                    </div>
+                  </div>
+                </div>
+            </div>
+
+            <!-- CENTRE DE CONTRÔLE / BACKLOG -->
+            <div class="planning-right-col" id="colonne-droite-controle">
+                <div class="box" style="padding: 8px;">
+                    <div class="block-title" style="margin-top:0; display:flex; justify-content:space-between; align-items:center;">
+                        🚨 Sensibilité des Alertes
+                    </div>
+                    <div class="form-group" style="margin-bottom:4px;"><label>Continuité Svc (50%)</label><select id="alertEquipeKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err">⛔ Bloquante</option><option value="warn" selected>⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                    <div class="form-group" style="margin-bottom:4px;"><label>Équipe d'anim.</label><select id="alertAnimKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err" selected>⛔ Bloquante</option><option value="warn">⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                    <div class="form-group" style="margin-bottom:4px;"><label>Conflit Salle</label><select id="alertSalleKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err" selected>⛔ Bloquante</option><option value="warn">⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                    <div class="form-group" style="margin-bottom:4px;"><label>Conflit Formateur</label><select id="alertDoubleFormKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err" selected>⛔ Bloquante</option><option value="warn">⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                    <div class="form-group" style="margin-bottom:4px;"><label>Conflit Apprenant</label><select id="alertDoubleAppKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err" selected>⛔ Bloquante</option><option value="warn">⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                    <div class="form-group" style="margin-bottom:4px;"><label>Sur-effectif</label><select id="alertEffPKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err">⛔ Bloquante</option><option value="warn" selected>⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                    <div class="form-group" style="margin-bottom:0;"><label>Sous-effectif</label><select id="alertEffMKanban" style="width:100px; font-size:10px;" onchange="syncAlerts()"><option value="err">⛔ Bloquante</option><option value="warn" selected>⚠️ Avertis.</option><option value="ignore">👁️‍🗨️ Ignorée</option></select></div>
+                </div>
+
+                <div class="box" style="padding: 8px; flex:1; display:flex; flex-direction:column; background:#fff; border-color:#c8d7f0;">
+                    <div class="block-title" style="color:var(--brand); margin-top:0;">⏸️ File d'attente globale</div>
+                    <div class="zone-title">📅 Dates Libres de Salles</div>
+                    <div id="backlog-dates" class="dates-libres-container" style="padding:4px; margin-bottom:8px; border-bottom:1px dashed #ccc;"></div>
+                    <div class="zone-title">👨‍🏫 Formateurs en réserve</div>
+                    <div id="backlog-formateurs" class="zone-drop" data-id="attente-form" data-accept="formateur" ondrop="dropKanban(event)" ondragover="allowDropKanban(event)" style="min-height:50px; margin-bottom:8px; background:#f4f8ff; border:1px solid #dde2f1;"></div>
+                    <div class="zone-title">👥 Apprenants non placés</div>
+                    <div id="backlog-apprenants" class="zone-drop" data-id="attente-app" data-accept="apprenant" ondrop="dropKanban(event)" ondragover="allowDropKanban(event)" style="flex:1; min-height:100px; background:#f4f8ff; border:1px solid #dde2f1; overflow-y:auto; max-height: 250px;"></div>
+                </div>
+            </div>
+        </div>
+      </div>
+      
+  </div>
+
+</div>
+
+<script>
+const LS_KEY = 'sigf_simulation_v53_json';
+let saveTimeout;
+
+// DATA CORE
+let acteursGlobal = [];
+let sallesDisponibles = [];
+let formationsGlobal = [];
+let etatGlobalCascade = [];
+
+// DATA CASTING 
+let castingState = {}; 
+
+// DATA KANBAN 
+let sessionsData = []; 
+let fileAttente = { formateurs: [], apprenants: [] };
+let idCounter = 1;
+let stateSubTab = 1;
+
+// --- GESTION DES SAUVEGARDES SÉCURISÉES (JSON + LOCALSTORAGE) ---
+function getSimulationConfig() {
+  return {
+    simProjet: document.getElementById('inpSimProjet') ? document.getElementById('inpSimProjet').value : 'Projet',
+    simAuteur: document.getElementById('inpSimAuteur') ? document.getElementById('inpSimAuteur').value : '',
+    simCommentaire: document.getElementById('inpSimCommentaire') ? document.getElementById('inpSimCommentaire').value : '',
+    agentsTotal: document.getElementById('inpAgentsTotal') ? document.getElementById('inpAgentsTotal').value : 0,
+    groupTotal: document.getElementById('inpGroupSizeTotal') ? document.getElementById('inpGroupSizeTotal').value : 0,
+    durTotal: document.getElementById('inpDurationTotal') ? document.getElementById('inpDurationTotal').value : 0,
+    dDeb: document.getElementById('inpDateDebut') ? document.getElementById('inpDateDebut').value : '',
+    dFin: document.getElementById('inpDateFin') ? document.getElementById('inpDateFin').value : '',
+    sallesDispo: document.getElementById('inpSallesDispo') ? document.getElementById('inpSallesDispo').value : 0,
+    plafCabler: document.getElementById('inpPlafondCabler') ? document.getElementById('inpPlafondCabler').value : 0,
+    coutEq: document.getElementById('inpCoutEquip') ? document.getElementById('inpCoutEquip').value : 0,
+    coutExt: document.getElementById('inpCoutExt') ? document.getElementById('inpCoutExt').value : 0,
+    order: getOrderFromUI(),
+    txtSalles: document.getElementById('txtSalles') ? document.getElementById('txtSalles').value : '',
+    txtFormations: document.getElementById('txtFormations') ? document.getElementById('txtFormations').value : '',
+    txtApprenants: document.getElementById('txtApprenants') ? document.getElementById('txtApprenants').value : '',
+    castingState: castingState
+  };
+}
+
+function applySimulationConfig(config) {
+    if(config.simProjet && document.getElementById('inpSimProjet')) document.getElementById('inpSimProjet').value = config.simProjet;
+    if(config.simAuteur && document.getElementById('inpSimAuteur')) document.getElementById('inpSimAuteur').value = config.simAuteur;
+    if(config.simCommentaire && document.getElementById('inpSimCommentaire')) document.getElementById('inpSimCommentaire').value = config.simCommentaire;
+    if(config.agentsTotal && document.getElementById('inpAgentsTotal')) document.getElementById('inpAgentsTotal').value = config.agentsTotal;
+    if(config.groupTotal && document.getElementById('inpGroupSizeTotal')) document.getElementById('inpGroupSizeTotal').value = config.groupTotal;
+    if(config.durTotal && document.getElementById('inpDurationTotal')) document.getElementById('inpDurationTotal').value = config.durTotal;
+    if(config.dDeb && document.getElementById('inpDateDebut')) document.getElementById('inpDateDebut').value = config.dDeb;
+    if(config.dFin && document.getElementById('inpDateFin')) document.getElementById('inpDateFin').value = config.dFin;
+    if(config.sallesDispo && document.getElementById('inpSallesDispo')) document.getElementById('inpSallesDispo').value = config.sallesDispo;
+    if(config.plafCabler && document.getElementById('inpPlafondCabler')) document.getElementById('inpPlafondCabler').value = config.plafCabler;
+    if(config.coutEq && document.getElementById('inpCoutEquip')) document.getElementById('inpCoutEquip').value = config.coutEq;
+    if(config.coutExt && document.getElementById('inpCoutExt')) document.getElementById('inpCoutExt').value = config.coutExt;
+    if(config.txtSalles && document.getElementById('txtSalles')) document.getElementById('txtSalles').value = config.txtSalles;
+    if(config.txtFormations && document.getElementById('txtFormations')) document.getElementById('txtFormations').value = config.txtFormations;
+    if(config.txtApprenants && document.getElementById('txtApprenants')) document.getElementById('txtApprenants').value = config.txtApprenants;
+    if(config.castingState) castingState = config.castingState;
+
+    if(config.order && Array.isArray(config.order)) {
+      const ul = document.getElementById('strategy-list');
+      if(ul) {
+          config.order.forEach(item => {
+            let id = typeof item === 'string' ? item : item.id;
+            let active = typeof item === 'string' ? true : item.active;
+            const li = ul.querySelector(`li[data-id="${id}"]`);
+            if(li) {
+                ul.appendChild(li);
+                li.querySelector('input[type="checkbox"]').checked = active;
+                if(!active) li.classList.add('inactive'); else li.classList.remove('inactive');
+            }
+          });
+          updatePriorityBadges();
+      }
+    }
+}
+
+function triggerAutoSave() {
+  try {
+      const config = getSimulationConfig();
+      localStorage.setItem(LS_KEY, JSON.stringify(config));
+      const indicator = document.getElementById('saveIndicator');
+      if(indicator) {
+          indicator.style.opacity = '1';
+          clearTimeout(saveTimeout);
+          saveTimeout = setTimeout(() => { indicator.style.opacity = '0'; }, 1500);
+      }
+  } catch (e) {
+      console.error("Auto-save failed", e);
+  }
+}
+
+function loadFromLocalStorage() {
+  const saved = localStorage.getItem(LS_KEY);
+  if(saved) {
+    try { applySimulationConfig(JSON.parse(saved)); } 
+    catch(e) { console.error("Erreur lecture cache local", e); }
+  }
+  calculerTDB();
+}
+
+function exportSimulationJson() {
+  try {
+      const config = getSimulationConfig();
+      const dataStr = JSON.stringify(config, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      let nomFichier = config.simProjet ? config.simProjet.replace(/[^a-z0-9]/gi, '_') : 'Projet';
+      a.download = `Simulation_SIGF_${nomFichier}.json`;
+      a.click(); 
+      URL.revokeObjectURL(url);
+  } catch (e) {
+      alert("Erreur lors de l'exportation du fichier.");
+      console.error(e);
+  }
+}
+
+function importSimulationJson(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+      try {
+          applySimulationConfig(JSON.parse(e.target.result));
+          triggerAutoSave(); 
+          calculerTDB();
+          parseAllData(); 
+          renderTreeView();
+          renderCastingCards();
+          alert("Simulation JSON restaurée avec succès !");
+      } catch(err) { alert("Erreur lors de la lecture du fichier JSON."); }
+  };
+  reader.readAsText(file); event.target.value = '';
+}
+
+
+// --- GESTION DES JOURS FÉRIÉS ---
+function getJoursFeriesFr(annee) {
+    const f = Math.floor, G = annee % 19, C = f(annee / 100), H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30, I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11)), J = (annee + f(annee / 4) + I + 2 - C + f(C / 4)) % 7, L = I - J, mois = 3 + f((L + 40) / 44), jour = L + 28 - 31 * f(mois / 4);
+    const paques = new Date(annee, mois - 1, jour);
+    const addDays = (d, days) => { const nd = new Date(d); nd.setDate(nd.getDate() + days); return nd; };
+    return [`${annee}-01-01`, `${annee}-05-01`, `${annee}-05-08`, `${annee}-07-14`, `${annee}-08-15`, `${annee}-11-01`, `${annee}-11-11`, `${annee}-12-25`, addDays(paques, 1).toISOString().split('T')[0], addDays(paques, 39).toISOString().split('T')[0], addDays(paques, 50).toISOString().split('T')[0]];
+}
+
+function estJourOuvre(dateStr) {
+    if(!dateStr) return false;
+    const d = new Date(dateStr);
+    if(d.getDay() === 0 || d.getDay() === 6) return false; 
+    if(getJoursFeriesFr(d.getFullYear()).includes(dateStr)) return false; 
+    return true;
+}
+
+function getArrayJoursOuvres(dDebStr, dFinStr) {
+  let jours = [];
+  let curDate = new Date(dDebStr);
+  const endDate = new Date(dFinStr);
+  let safety = 0;
+  while (curDate <= endDate) {
+    if(++safety > 10000) break;
+    const dateStr = curDate.toISOString().split('T')[0];
+    if (estJourOuvre(dateStr)) jours.push(dateStr);
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  return jours;
+}
+
+function formatDateFr(isoString) {
+    if(!isoString) return "";
+    let parts = isoString.split('-');
+    if(parts.length===3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return new Date(isoString).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function formaterEuro(montant) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(montant); }
+
+// --- SYNC DES ALERTES ---
+function syncAlerts() { mettreAJourUI(); renderCastingCards(); }
+function getAlertLvl(baseId) { 
+    let el = document.getElementById(baseId + 'Kanban') || document.getElementById(baseId);
+    return el ? el.value : 'warn'; 
+}
+
+// --- NAVIGATION A DEUX NIVEAUX ---
+function openMain(tabIndex) {
+    document.querySelectorAll('.main-tab').forEach((el, i) => el.classList.toggle('active', i === tabIndex - 1));
+    document.querySelectorAll('.main-content').forEach((el, i) => el.classList.toggle('active', i === tabIndex - 1));
+    if(tabIndex === 2) { openSub(stateSubTab); } 
+}
+
+function openSub(tabIndex) {
+    stateSubTab = tabIndex;
+    document.querySelectorAll('.sub-content').forEach((el, i) => el.classList.toggle('active', i === tabIndex - 1));
+    
+    // MAJ de la Workflow Bar
+    document.querySelectorAll('.workflow-bar .step').forEach((el, i) => {
+        el.classList.remove('active', 'done');
+        if (i < tabIndex - 1) el.classList.add('done');
+        else if (i === tabIndex - 1) el.classList.add('active');
+    });
+    
+    if(tabIndex === 2) { 
+        parseAllData(); 
+        renderTreeView();
+        renderCastingCards();
+    }
+    if(tabIndex === 3) { mettreAJourUI(); }
+}
+
+// --- ONGLET 1 : SIMULATION COPIL ---
+function handleParamChange() { calculerTDB(); triggerAutoSave(); }
+
+function getOrderFromUI() {
+  let order = [];
+  let list = document.getElementById('strategy-list');
+  if(list) {
+      list.querySelectorAll('.drag-item').forEach(item => {
+          order.push({ id: item.getAttribute('data-id'), active: item.querySelector('input[type="checkbox"]').checked });
+      });
+  }
+  return order;
+}
+
+function toggleLevier(checkbox) {
+    const li = checkbox.closest('li');
+    if(checkbox.checked) li.classList.remove('inactive');
+    else li.classList.add('inactive');
+    handleParamChange();
+}
+
+const listStrat = document.getElementById('strategy-list');
+if(listStrat) {
+    listStrat.addEventListener('dragstart', (e) => e.target.closest('li').classList.add('dragging'));
+    listStrat.addEventListener('dragend', (e) => { e.target.closest('li').classList.remove('dragging'); updatePriorityBadges(); handleParamChange(); });
+    listStrat.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const dragging = document.querySelector('.dragging');
+      const afterElement = [...listStrat.querySelectorAll('.drag-item:not(.dragging)')].reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = e.clientY - box.top - box.height / 2;
+        return (offset < 0 && offset > closest.offset) ? { offset: offset, element: child } : closest;
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+      afterElement == null ? listStrat.appendChild(dragging) : listStrat.insertBefore(dragging, afterElement);
+    });
+}
+
+function updatePriorityBadges() { 
+    let list = document.getElementById('strategy-list');
+    if(list) list.querySelectorAll('.drag-item').forEach((item, index) => { item.querySelector('.badge-prio').textContent = index + 1; }); 
+}
+
+function calculerTDB() {
+  const agentsElem = document.getElementById('inpAgentsTotal');
+  const agents = agentsElem ? parseInt(agentsElem.value) || 0 : 0;
+  const jaugeElem = document.getElementById('inpGroupSizeTotal');
+  const jauge = jaugeElem ? parseInt(jaugeElem.value) || 1 : 1;
+  const dureeElem = document.getElementById('inpDurationTotal');
+  const duree = dureeElem ? parseInt(dureeElem.value) || 0 : 0;
+  
+  const nbGrp = Math.ceil(agents / (jauge > 0 ? jauge : 1));
+  const besoinTotal = nbGrp * duree;
+  
+  if(document.getElementById('lblBesoinTotalCalc')) document.getElementById('lblBesoinTotalCalc').innerText = `Besoin Global Identifié : ${besoinTotal} jours-salle`;
+  
+  const dDeb = document.getElementById('inpDateDebut') ? document.getElementById('inpDateDebut').value : ''; 
+  const dFin = document.getElementById('inpDateFin') ? document.getElementById('inpDateFin').value : '';
+  let joursOuvres = getArrayJoursOuvres(dDeb, dFin).length;
+
+  const sExist = document.getElementById('inpSallesDispo') ? parseInt(document.getElementById('inpSallesDispo').value) || 0 : 0;
+  const sNew = document.getElementById('inpPlafondCabler') ? parseInt(document.getElementById('inpPlafondCabler').value) || 0 : 0;
+  const coutEq = document.getElementById('inpCoutEquip') ? parseInt(document.getElementById('inpCoutEquip').value) || 0 : 0;
+  const coutExt = document.getElementById('inpCoutExt') ? parseInt(document.getElementById('inpCoutExt').value) || 0 : 0;
+
+  const ordreConfig = getOrderFromUI();
+  
+  let reliquat = besoinTotal;
+  let budgetCapex = 0; let budgetOpex = 0;
+  etatGlobalCascade = [];
+
+  ordreConfig.forEach((etapeConfig, index) => {
+    let levier = etapeConfig.id; let isActive = etapeConfig.active;
+    let etape = { priorite: index + 1, code: levier, nom: "", nbSalles: 0, joursCouverts: 0, reliquatSortie: 0, cout: 0, typeCout: "", active: isActive };
+    
+    if (reliquat > 0 && joursOuvres > 0 && isActive) {
+       if (levier === 'distanciel') {
+           etape.nom = "Formation à distance"; etape.joursCouverts = reliquat;
+           etape.nbSalles = Math.ceil(etape.joursCouverts / joursOuvres); etape.typeCout = "GRATUIT";
+       } else if (levier === 'existant') {
+           etape.nom = "Salles existantes"; etape.joursCouverts = Math.min(reliquat, sExist * joursOuvres);
+           etape.nbSalles = Math.ceil(etape.joursCouverts / joursOuvres); etape.typeCout = "GRATUIT";
+       } else if (levier === 'cabler') {
+           etape.nom = "Salles aménagées"; etape.joursCouverts = Math.min(reliquat, sNew * joursOuvres);
+           etape.nbSalles = Math.ceil(etape.joursCouverts / joursOuvres);
+           etape.cout = etape.nbSalles * coutEq; etape.typeCout = "CAPEX"; budgetCapex += etape.cout;
+       } else if (levier === 'externe') {
+           etape.nom = "Prestataire externe"; etape.joursCouverts = reliquat; 
+           etape.nbSalles = Math.ceil(etape.joursCouverts / joursOuvres); 
+           etape.cout = etape.joursCouverts * coutExt; etape.typeCout = "OPEX"; budgetOpex += etape.cout;
+       }
+       reliquat -= etape.joursCouverts;
+    } else {
+       if(levier === 'distanciel') etape.nom = "Formation à distance"; else if(levier === 'existant') etape.nom = "Salles existantes";
+       else if(levier === 'cabler') etape.nom = "Salles aménagées"; else etape.nom = "Prestataire externe";
+       if(!isActive) etape.nom += " (Désactivé)"; else etape.nom += " (Non requise)";
+    }
+    etape.reliquatSortie = reliquat; etatGlobalCascade.push(etape);
+  });
+
+  if(document.getElementById('kpiCapex')) document.getElementById('kpiCapex').innerText = formaterEuro(budgetCapex);
+  if(document.getElementById('kpiOpex')) document.getElementById('kpiOpex').innerText = formaterEuro(budgetOpex);
+  if(document.getElementById('kpiBudget')) document.getElementById('kpiBudget').innerText = formaterEuro(budgetCapex + budgetOpex);
+
+  const tbody = document.querySelector('#tableCascade tbody');
+  if(tbody) {
+      tbody.innerHTML = `<tr style="background:#fcfcfc;"><td>-</td><td style="font-weight:bold; color:var(--muted);">Besoin Initial</td><td class="num">-</td><td class="num" style="font-size:14px; font-weight:900;">${besoinTotal}</td><td class="num">-</td></tr>`;
+      etatGlobalCascade.forEach(e => {
+        let trStyle = (!e.active) ? "opacity:0.4; font-style:italic; background:#f9f9f9;" : (e.joursCouverts === 0 ? "opacity:0.5;" : "");
+        let capCovertHTML = e.joursCouverts > 0 ? `<span style="color:var(--ok); background:#e6f9f0; padding:4px 8px; border-radius:4px;">+ ${e.joursCouverts} j.</span>` : "-";
+        let reliquatColor = e.reliquatSortie === 0 ? "color:var(--ok);" : "color:var(--bad);";
+        tbody.innerHTML += `<tr style="${trStyle}"><td><span style="font-weight:900; color:var(--ghost); font-size:15px;">${e.priorite}</span></td><td style="font-weight:bold;">${e.nom}</td><td class="num">${capCovertHTML}</td><td class="num" style="${reliquatColor} font-size:14px;">${e.reliquatSortie}</td><td class="num">${formaterEuro(e.cout)}</td></tr>`;
+      });
+  }
+
+  let statusPlaquette = reliquat > 0 
+    ? `<span style="color:var(--bad);">⚠️ <strong>ALERTE CAPACITÉ :</strong> Il manque ${reliquat} jours-salle. La stratégie sélectionnée est insuffisante.</span>` 
+    : `<span style="color:var(--ok);">✅ <strong>BESOIN COUVERT :</strong> 100% de la demande est sécurisée.</span>`;
+  
+  let pName = document.getElementById('inpSimProjet') ? document.getElementById('inpSimProjet').value : 'Projet';
+  
+  if(document.getElementById('plaquette-note-text')) {
+      document.getElementById('plaquette-note-text').innerHTML = `
+        <p><strong>📝 Contexte :</strong> Cette synthèse détaille la couverture logistique du projet <strong>${pName}</strong>.</p>
+        <p><strong>🎯 Périmètre :</strong> Le projet nécessite <strong>${besoinTotal} jours-salle</strong> au total.</p>
+        <p><strong>💰 Budget :</strong> Le coût estimé s'élève à <strong>${formaterEuro(budgetCapex + budgetOpex)}</strong>.</p>
+        <p>${statusPlaquette}</p>
+      `;
+  }
+}
+
+// --- PARSEUR DE VIVIERS ---
+function getSlug(text) { return text.toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+function parseAllData() {
+    sallesDisponibles = [];
+    if(document.getElementById('txtSalles')) {
+        document.getElementById('txtSalles').value.split('\n').forEach((l, idx) => {
+            let nom = l.replace(/"/g, '').trim();
+            if(nom) sallesDisponibles.push({id: `S${idx}`, nom: nom});
+        });
+    }
+
+    let anciensActeurs = {};
+    acteursGlobal.forEach(a => anciensActeurs[a.id] = a.active);
+    
+    acteursGlobal = [];
+    let identifiantsPresents = new Set();
+
+    if(document.getElementById('txtApprenants')) {
+        document.getElementById('txtApprenants').value.split('\n').forEach(ligne => {
+            ligne = ligne.trim(); if(!ligne) return;
+            let parts = ligne.includes('\t') ? ligne.split('\t') : ligne.split(';');
+            let nomBrut = (parts[0] || '').trim().toUpperCase();
+            if(!nomBrut) return; 
+            
+            let prenomBrut = (parts[1] || '').trim();
+            let emailBrut = (parts[2] || '').trim();
+            let equipeBrut = (parts[3] || 'Equipe Générale').trim(); 
+            let territoire = "Lille";
+            if(equipeBrut.toLowerCase().includes("lomme")) territoire = "Lomme";
+            else if(equipeBrut.toLowerCase().includes("hellemmes")) territoire = "Hellemmes";
+
+            let baseId = 'act-' + getSlug(emailBrut || (nomBrut+prenomBrut));
+            let finalId = baseId; let increment = 1;
+            while(identifiantsPresents.has(finalId)) { finalId = baseId + '-' + increment++; }
+            identifiantsPresents.add(finalId);
+
+            let estActif = anciensActeurs[finalId] !== undefined ? anciensActeurs[finalId] : true;
+            acteursGlobal.push({ id: finalId, nom: nomBrut + " " + prenomBrut, rawNom: nomBrut, email: emailBrut, equipe: equipeBrut, territoire: territoire, active: estActif });
+        });
+    }
+
+    formationsGlobal = [];
+    let newCastingState = {};
+    
+    if(document.getElementById('txtFormations')) {
+        document.getElementById('txtFormations').value.split('\n').forEach(ligne => {
+            ligne = ligne.trim(); if(!ligne) return;
+            let parts = ligne.split(';');
+            let nomF = (parts[0] || '').trim();
+            if(!nomF) return;
+            
+            let strongModId = 'mod-' + getSlug(nomF);
+            formationsGlobal.push({ id: strongModId, nom: nomF, jours: parseInt(parts[1]) || 1, jauge: parseInt(parts[2]) || 10 });
+            
+            if(castingState[strongModId]) {
+                newCastingState[strongModId] = castingState[strongModId];
+                if(!newCastingState[strongModId].appTeams) newCastingState[strongModId].appTeams = [];
+                if(!newCastingState[strongModId].appAgents) newCastingState[strongModId].appAgents = [];
+            } else {
+                newCastingState[strongModId] = { f1: null, f2: null, appTeams: [], appAgents: [] };
+            }
+        });
+    }
+    castingState = newCastingState;
+}
+
+// --- RENDER TREE-VIEW (Étape 2 - Gauche) ---
+function renderTreeView() {
+    const container = document.getElementById('tree-container');
+    if(!container) return;
+    container.innerHTML = '';
+    
+    let teams = {};
+    acteursGlobal.forEach(a => {
+        if(!teams[a.equipe]) teams[a.equipe] = [];
+        teams[a.equipe].push(a);
+    });
+
+    let html = '';
+    let validCount = 0;
+    
+    Object.keys(teams).sort().forEach(teamName => {
+        let agents = teams[teamName];
+        let teamId = `team-${getSlug(teamName)}`;
+        
+        html += `
+        <div>
+            <div class="tree-folder" draggable="true" ondragstart="dragCasting(event, 'team', '${teamName}')" onclick="toggleTree('${teamId}')">
+                <span class="tree-folder-icon">📁</span>
+                <span style="flex:1;">${teamName} <span style="font-size:9px; color:#888;">(${agents.length})</span></span>
+            </div>
+            <div class="tree-children" id="${teamId}">
+        `;
+        
+        agents.sort((a,b) => a.nom.localeCompare(b.nom)).forEach(a => {
+            if(a.active) validCount++;
+            let checked = a.active ? 'checked' : '';
+            let styleClass = a.active ? '' : 'excluded';
+            html += `
+                <div class="tree-agent ${styleClass}" draggable="${a.active}" ondragstart="dragCasting(event, 'agent', '${a.id}')">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; width:100%;">
+                        <input type="checkbox" class="agent-checkbox" ${checked} onchange="toggleAgentActive('${a.id}', this.checked)">
+                        <span style="flex:1;">${a.nom}</span>
+                    </label>
+                </div>
+            `;
+        });
+        
+        html += `</div></div>`;
+    });
+    
+    container.innerHTML = html;
+    if(document.getElementById('tree-counter')) document.getElementById('tree-counter').innerText = `${validCount} actifs`;
+}
+
+function toggleTree(id) { document.getElementById(id).classList.toggle('open'); }
+
+function toggleAgentActive(actId, isActive) {
+    let act = acteursGlobal.find(a => a.id === actId);
+    if(act) {
+        act.active = isActive;
+        if(!isActive) {
+            Object.keys(castingState).forEach(formId => {
+                if(castingState[formId].f1 === actId) castingState[formId].f1 = null;
+                if(castingState[formId].f2 === actId) castingState[formId].f2 = null;
+                castingState[formId].appAgents = castingState[formId].appAgents.filter(id => id !== actId);
+            });
+            renderCastingCards();
+        }
+        renderTreeView();
+    }
+}
+
+// --- RENDER CASTING CARDS ---
+function renderCastingCards() {
+    const container = document.getElementById('casting-cards-container');
+    if(!container) return;
+    container.innerHTML = '';
+    
+    let alertAnimLvl = getAlertLvl('alertAnim');
+    let alertAppLvl = getAlertLvl('alertEffM');
+
+    formationsGlobal.forEach(f => {
+        let state = castingState[f.id];
+        let cardStatus = 'green';
+        let alertMessages = [];
+        
+        let htmlF1 = `<div class="slot-placeholder">Glisser Formateur</div>`;
+        if(state.f1) {
+            let act = acteursGlobal.find(a => a.id === state.f1);
+            if(act) htmlF1 = `<div class="cast-badge agent-badge">${act.nom} <button class="cast-del" onclick="removeCasting('${f.id}', 'f1')">✖</button></div>`;
+        } else {
+            if(alertAnimLvl === 'err') { cardStatus = 'red'; alertMessages.push('⛔ Formateur principal requis'); }
+            else if (alertAnimLvl === 'warn') { if(cardStatus !== 'red') cardStatus = 'orange'; alertMessages.push('⚠️ Formateur principal manquant'); }
+        }
+        
+        let htmlF2 = `<div class="slot-placeholder">Glisser Aidant</div>`;
+        if(state.f2) {
+            let act = acteursGlobal.find(a => a.id === state.f2);
+            if(act) htmlF2 = `<div class="cast-badge agent-badge">${act.nom} <button class="cast-del" onclick="removeCasting('${f.id}', 'f2')">✖</button></div>`;
+        }
+
+        let htmlApp = '';
+        let validAppCount = 0;
+        
+        state.appTeams.forEach(eq => {
+            let acts = acteursGlobal.filter(a => a.equipe === eq && a.active);
+            if(acts.length > 0) {
+                validAppCount += acts.length;
+                let namesInTeam = acts.map(a => "• " + a.nom).join('&#10;');
+                htmlApp += `<div class="cast-badge team-badge" title="${namesInTeam}">${eq} (${acts.length} agt) <button class="cast-del" onclick="removeCastingTeam('${f.id}', '${eq}')">✖</button></div>`;
+            }
+        });
+        
+        state.appAgents.forEach(actId => {
+            let act = acteursGlobal.find(a => a.id === actId);
+            if(act && act.active) {
+                validAppCount++;
+                htmlApp += `<div class="cast-badge" style="border-left:3px solid #3498db;" title="${act.equipe}">👤 ${act.nom} <button class="cast-del" onclick="removeCastingAgent('${f.id}', '${act.id}')">✖</button></div>`;
+            }
+        });
+        
+        if(validAppCount === 0) {
+            htmlApp = `<div class="slot-placeholder">Glisser Dossier Équipe ou Agents</div>`;
+            if(alertAppLvl === 'err') { cardStatus = 'red'; alertMessages.push('⛔ Aucun apprenant ciblé'); }
+            else if (alertAppLvl === 'warn') { if(cardStatus !== 'red') cardStatus = 'orange'; alertMessages.push('⚠️ Aucun apprenant ciblé'); }
+        } else {
+            let nbSessions = Math.ceil(validAppCount / f.jauge);
+            alertMessages.push(`<span style="color:var(--ok);">✅ ${validAppCount} apprenants ciblés (soit ${nbSessions} session(s) requise(s))</span>`);
+        }
+
+        let alertHtmlBlock = alertMessages.map(m => `<div class="alert-message-fiche ${m.includes('⚠️') ? 'warn' : ''}">${m}</div>`).join('');
+
+        container.innerHTML += `
+        <div class="fiche-casting status-${cardStatus}">
+            <div class="fiche-header">
+                <div class="fiche-title">${f.nom}</div>
+                <div style="display:flex; gap:10px;">
+                    <div class="fiche-meta">⏱️ ${f.jours} j</div>
+                    <div class="fiche-meta">👥 Jauge: ${f.jauge}</div>
+                </div>
+            </div>
+            <div class="fiche-body">
+                <div class="slot-column" style="flex:1;">
+                    <div class="slot-title">👑 Formateur Princ.</div>
+                    <div class="slot-dropzone" id="dz-f1-${f.id}" data-form="${f.id}" data-slot="f1" ondrop="dropCasting(event)" ondragover="allowDrop(event)">${htmlF1}</div>
+                </div>
+                <div class="slot-column" style="flex:1;">
+                    <div class="slot-title">🤝 Formateur Aidant</div>
+                    <div class="slot-dropzone" id="dz-f2-${f.id}" data-form="${f.id}" data-slot="f2" ondrop="dropCasting(event)" ondragover="allowDrop(event)">${htmlF2}</div>
+                </div>
+                <div class="slot-column" style="flex:2;">
+                    <div class="slot-title">👥 Bassin d'Apprenants (${validAppCount})
+                       <button class="btn-small" style="background:#ffcdd2; color:#c0392b; border:none; border-radius:2px; font-size:8px; padding:1px 4px; cursor:pointer;" onclick="emptyApprenants('${f.id}')">Vider</button>
+                    </div>
+                    <div class="slot-dropzone" id="dz-app-${f.id}" data-form="${f.id}" data-slot="app" ondrop="dropCasting(event)" ondragover="allowDrop(event)" style="flex-direction: row; flex-wrap: wrap; align-content: flex-start;">${htmlApp}</div>
+                    ${alertHtmlBlock}
+                </div>
+            </div>
+        </div>`;
+    });
+}
+
+// --- DRAG & DROP LOGIC (CASTING) ---
+function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+document.addEventListener('dragleave', function(e) { if(e.target.classList && e.target.classList.contains('slot-dropzone')) e.target.classList.remove('drag-over'); });
+function dragCasting(ev, type, idOrName) { ev.dataTransfer.setData("dragType", type); ev.dataTransfer.setData("dragData", idOrName); ev.target.classList.add('drag-ghost'); }
+document.addEventListener('dragend', function(e) { if(e.target.classList) e.target.classList.remove('drag-ghost'); document.querySelectorAll('.slot-dropzone.drag-over').forEach(el => el.classList.remove('drag-over')); });
+
+function dropCasting(ev) {
+    ev.preventDefault();
+    let targetZone = ev.currentTarget; targetZone.classList.remove('drag-over');
+    let formId = targetZone.getAttribute('data-form'); let slotType = targetZone.getAttribute('data-slot');
+    let dragType = ev.dataTransfer.getData("dragType"); let dragData = ev.dataTransfer.getData("dragData"); 
+    
+    if(!castingState[formId]) return;
+    
+    if(slotType === 'f1' || slotType === 'f2') {
+        if(dragType === 'team') return alert("Uniquement un agent individuel en formateur.");
+        if(slotType === 'f1' && castingState[formId].f2 === dragData) castingState[formId].f2 = null;
+        if(slotType === 'f2' && castingState[formId].f1 === dragData) castingState[formId].f1 = null;
+        castingState[formId][slotType] = dragData;
+    } 
+    else if(slotType === 'app') {
+        if(dragType === 'team') {
+            if(!castingState[formId].appTeams.includes(dragData)) castingState[formId].appTeams.push(dragData);
+        } else {
+            if(!castingState[formId].appAgents.includes(dragData)) castingState[formId].appAgents.push(dragData);
+        }
+    }
+    renderCastingCards();
+}
+
+function removeCasting(formId, slotType) { if(castingState[formId]) castingState[formId][slotType] = null; renderCastingCards(); }
+function removeCastingTeam(formId, teamName) {
+    if(castingState[formId]) { castingState[formId].appTeams = castingState[formId].appTeams.filter(t => t !== teamName); renderCastingCards(); }
+}
+function removeCastingAgent(formId, agentId) {
+    if(castingState[formId]) { castingState[formId].appAgents = castingState[formId].appAgents.filter(id => id !== agentId); renderCastingCards(); }
+}
+function emptyApprenants(formId) { 
+    if(castingState[formId]) { castingState[formId].appTeams = []; castingState[formId].appAgents = []; } renderCastingCards(); 
+}
+
+// CORRECTION MOTEUR AUTO-ASSIGNATION SME
+function getFormateursForModule(modId, indexJour, pool) {
+    let fList = [];
+    let modBUD = formationsGlobal.find(m => m.nom.toLowerCase().includes("budget"));
+    let modADM = formationsGlobal.find(m => m.nom.toLowerCase().includes("administrateur"));
+    let modTECH = formationsGlobal.find(m => m.nom.toLowerCase().includes("technique"));
+
+    if(modBUD && modId === modBUD.id) { fList = pool.filter(f => f.rawNom.includes("CAPILLI") || f.rawNom.includes("BEART")); } 
+    else if(modADM && modId === modADM.id) { fList = pool.filter(f => f.rawNom.includes("VANDERHAEGHE")); } 
+    else if(modTECH && modId === modTECH.id) { fList = pool.filter(f => ["RYZEK", "SQUELBUT", "IZZOUZI", "MAES", "HACHE", "VAN PUYENBROUCK"].some(n => f.rawNom.includes(n))); fList = fList.slice(0, 2); }
+    
+    if(fList.length < 2) {
+        let poolRestant = pool.filter(f => !fList.includes(f));
+        if(fList.length === 0 && poolRestant.length >= 2) {
+            fList.push(poolRestant[indexJour % poolRestant.length]);
+            fList.push(poolRestant[(indexJour + 1) % poolRestant.length]);
+        }
+        else if (fList.length === 1 && poolRestant.length >= 1) {
+            fList.push(poolRestant[indexJour % poolRestant.length]);
+        }
+    }
+    return fList.slice(0, 2).filter(f => f !== undefined);
+}
+
+// --- MOTEUR ALGORITHMIQUE : LE TRIPLE VERROU ---
+function lancerGenerationPlanning() {
+    const dDeb = document.getElementById('inpDateDebut').value; 
+    const dFin = document.getElementById('inpDateFin').value;
+    let joursOuvres = getArrayJoursOuvres(dDeb, dFin);
+    
+    sessionsData = []; fileAttente = { formateurs: [], apprenants: [] };
+    let effectifTotalTeam = {};
+    acteursGlobal.forEach(a => { if(a.active) effectifTotalTeam[a.equipe] = (effectifTotalTeam[a.equipe] || 0) + 1; });
+
+    let effectifsPlacesParJour = {}; 
+    let sallesOccupeesParJour = {}; 
+    let formateursOccupesParJour = {}; 
+    let apprenantsOccupesParJour = {}; 
+    let placedAgentsGlobal = new Set();
+
+    formationsGlobal.forEach(form => {
+        let state = castingState[form.id];
+        if(!state) return;
+        
+        let dM = form.jours; let jMax = form.jauge;
+        
+        let appIdsSet = new Set();
+        state.appTeams.forEach(eq => { acteursGlobal.filter(a => a.equipe === eq && a.active).forEach(a => appIdsSet.add(a.id)); });
+        state.appAgents.forEach(id => { let act = acteursGlobal.find(a => a.id === id); if(act && act.active) appIdsSet.add(id); });
+        
+        let appObjects = Array.from(appIdsSet).map(id => acteursGlobal.find(a => a.id === id));
+        if(appObjects.length === 0) return; // SKIP IF NO APPRENANTS
+
+        ['Lille', 'Lomme', 'Hellemmes'].forEach(territoire => {
+            let vivierTerritoire = appObjects.filter(a => a.territoire === territoire);
+            let cohortes = []; let currentCohort = []; let teamCountInCohort = {};
+
+            while(vivierTerritoire.length > 0) {
+                let addedAny = false;
+                for(let i=0; i < vivierTerritoire.length; i++) {
+                    let a = vivierTerritoire[i];
+                    let teamPlafond = Math.max(1, Math.ceil((effectifTotalTeam[a.equipe] || 0) / 2));
+                    let currentTeamCount = teamCountInCohort[a.equipe] || 0;
+
+                    if(currentTeamCount < teamPlafond && currentCohort.length < jMax) {
+                        currentCohort.push(a); teamCountInCohort[a.equipe] = currentTeamCount + 1;
+                        vivierTerritoire.splice(i, 1); i--; addedAny = true;
+                    }
+                    if(currentCohort.length >= jMax) break;
+                }
+                
+                if(!addedAny) { 
+                    if(currentCohort.length === 0) currentCohort.push(vivierTerritoire.splice(0,1)[0]); 
+                }
+                
+                if(currentCohort.length >= jMax || vivierTerritoire.length === 0 || !addedAny) {
+                    if(currentCohort.length > 0) cohortes.push(currentCohort);
+                    currentCohort = []; teamCountInCohort = {};
+                }
+            }
+
+            let ptrJour = 0;
+            
+            cohortes.forEach(cohorte => {
+                let joursTrouves = [];
+                let mySalle = null;
+                let safetyCounter = 0;
+
+                while(joursTrouves.length < dM && ptrJour < joursOuvres.length) {
+                    if(++safetyCounter > 1000) break; 
+                    let dStr = joursOuvres[ptrJour];
+                    if(!effectifsPlacesParJour[dStr]) effectifsPlacesParJour[dStr] = {};
+                    if(!sallesOccupeesParJour[dStr]) sallesOccupeesParJour[dStr] = [];
+                    if(!formateursOccupesParJour[dStr]) formateursOccupesParJour[dStr] = [];
+                    if(!apprenantsOccupesParJour[dStr]) apprenantsOccupesParJour[dStr] = [];
+                    
+                    let canPlace = true;
+                    
+                    // --- LE TRIPLE VERROU ---
+                    
+                    // Verrou 3 : Vérification Apprenants
+                    for(let a of cohorte) {
+                        if(apprenantsOccupesParJour[dStr].includes(a.id)) { canPlace = false; break; }
+                        let dejaPlaces = effectifsPlacesParJour[dStr][a.equipe] || 0;
+                        let plafond = Math.max(1, Math.ceil((effectifTotalTeam[a.equipe] || 0) / 2));
+                        if(dejaPlaces + 1 > plafond) { canPlace = false; break; }
+                    }
+
+                    // Pre-Détermination des Formateurs
+                    let formateursAAssigner = [];
+                    if(state.f1) formateursAAssigner.push(state.f1);
+                    if(state.f2) formateursAAssigner.push(state.f2);
+                    if(formateursAAssigner.length === 0) {
+                        formateursAAssigner = getFormateursForModule(form.id, ptrJour, acteursGlobal).map(f => f.id);
+                    }
+
+                    // Verrou 2 : Vérification Formateurs
+                    if(canPlace) {
+                        for(let fId of formateursAAssigner) {
+                            if(formateursOccupesParJour[dStr].includes(fId)) { canPlace = false; break; }
+                        }
+                    }
+
+                    // Verrou 1 : Disponibilité de la Salle 
+                    if(canPlace) {
+                        let sallesFiltrées = sallesDisponibles;
+                        if (territoire !== 'Lille') {
+                            let f = sallesDisponibles.filter(s => s.nom.toLowerCase().includes(territoire.toLowerCase()));
+                            if(f.length > 0) sallesFiltrées = f; 
+                        }
+                        
+                        if(mySalle === null) {
+                            let freeRooms = sallesFiltrées.filter(s => !sallesOccupeesParJour[dStr].includes(s.id));
+                            if(freeRooms.length > 0) mySalle = freeRooms[0];
+                            else canPlace = false;
+                        } else {
+                            if(sallesOccupeesParJour[dStr].includes(mySalle.id)) canPlace = false;
+                        }
+                    }
+
+                    if(canPlace) { joursTrouves.push(dStr); } 
+                    else { joursTrouves = []; mySalle = null; } 
+                    
+                    ptrJour++;
+                }
+
+                if(joursTrouves.length === dM) {
+                    joursTrouves.forEach((dateSess, jIdx) => {
+                        // Verrouillage Logistique
+                        sallesOccupeesParJour[dateSess].push(mySalle.id); 
+                        
+                        // Verrouillage Apprenants
+                        cohorte.forEach(a => { 
+                            effectifsPlacesParJour[dateSess][a.equipe] = (effectifsPlacesParJour[dateSess][a.equipe] || 0) + 1; 
+                            apprenantsOccupesParJour[dateSess].push(a.id);
+                            placedAgentsGlobal.add(a.id);
+                        });
+
+                        // Verrouillage Formateurs
+                        let formateursSess = [];
+                        let fIds = [];
+                        if(state.f1) fIds.push(state.f1);
+                        if(state.f2) fIds.push(state.f2);
+                        if(fIds.length === 0) fIds = getFormateursForModule(form.id, ptrJour, acteursGlobal).map(f=>f.id);
+                        
+                        fIds.forEach(fid => {
+                            let fObj = acteursGlobal.find(a=>a.id===fid);
+                            if(fObj) {
+                                formateursOccupesParJour[dateSess].push(fid);
+                                formateursSess.push(Object.assign({type:'formateur'}, fObj));
+                                placedAgentsGlobal.add(fid);
+                            }
+                        });
+
+                        sessionsData.push({ 
+                            idSess: `sess-${idCounter++}`, dateSess: dateSess, idModule: form.id, 
+                            nomModuleDisplay: `${form.nom}${dM > 1 ? ' (J'+(jIdx+1)+'/'+dM+')' : ''}`,
+                            idSalle: mySalle.id, jaugeMax: jMax, formateurs: formateursSess, 
+                            apprenants: cohorte.map(a => Object.assign({type:'apprenant'}, a))
+                        });
+                    });
+                } else {
+                    cohorte.forEach(a => fileAttente.apprenants.push(Object.assign({type:'apprenant'}, a)));
+                }
+            });
+        });
+    });
+
+    acteursGlobal.forEach(a => {
+        if(a.active && !placedAgentsGlobal.has(a.id)) { fileAttente.apprenants.push(Object.assign({type:'apprenant'}, a)); }
+    });
+
+    openSub(3); 
+}
+
+// --- RENDU UI KANBAN (Étape 3) ---
+function processAlerte(listErr, listWarn, flag, msg) {
+    if(flag === 'err') listErr.push(msg); else if(flag === 'warn') listWarn.push(msg);
+}
+
+function evaluerAlertesKanban() {
+    let presence = {}; let effectifParEquipeTotal = {};
+    acteursGlobal.forEach(a => { if(a.active && a.equipe) effectifParEquipeTotal[a.equipe] = (effectifParEquipeTotal[a.equipe] || 0) + 1; });
+
+    let effectifsPlacesParJour = {};
+
+    sessionsData.forEach(sess => {
+        let d = sess.dateSess;
+        if(d) {
+            if(!presence[d]) presence[d] = { form:[], app:[], salle:[] };
+            if(!effectifsPlacesParJour[d]) effectifsPlacesParJour[d] = {};
+            presence[d].salle.push({ idSalle: sess.idSalle, idSess: sess.idSess });
+            sess.formateurs.forEach(f => presence[d].form.push({ idAct: f.id, idSess: sess.idSess }));
+            sess.apprenants.forEach(a => {
+                presence[d].app.push({ idAct: a.id, idSess: sess.idSess });
+                if(a.equipe) effectifsPlacesParJour[d][a.equipe] = (effectifsPlacesParJour[d][a.equipe] || 0) + 1;
+            });
+        }
+    });
+
+    const cAnim = getAlertLvl('alertAnimKanban'); const cSalle = getAlertLvl('alertSalleKanban');
+    const cDForm = getAlertLvl('alertDoubleFormKanban'); const cDApp = getAlertLvl('alertDoubleAppKanban');
+    const cEffP = getAlertLvl('alertEffPKanban'); const cEffM = getAlertLvl('alertEffMKanban');
+    const cEquipe = getAlertLvl('alertEquipeKanban');
+    
+    sessionsData.forEach(sess => {
+        sess.status = 'green'; sess.erreurs = []; sess.warnings = []; let d = sess.dateSess;
+
+        if(sess.formateurs.length < 2 && sess.formateurs.length > 0) processAlerte(sess.erreurs, sess.warnings, cAnim, "Équipe incomplète (1 Form + 1 Aidant).");
+        if(sess.formateurs.length === 0) sess.warnings.push("Aucun animateur affecté.");
+        if(sess.formateurs.length > 2) sess.warnings.push("Plus de 2 animateurs.");
+        
+        if(d) {
+            if(presence[d].salle.filter(x => x.idSalle === sess.idSalle && x.idSalle !== 'S-DIST').length > 1) processAlerte(sess.erreurs, sess.warnings, cSalle, "Conflit Salle.");
+            sess.formateurs.forEach(f => { if(presence[d].form.filter(x => x.idAct === f.id).length > 1) processAlerte(sess.erreurs, sess.warnings, cDForm, `Conflit Formateur (${f.nom}).`); });
+            sess.apprenants.forEach(a => { 
+                if(presence[d].app.filter(x => x.idAct === a.id).length > 1) processAlerte(sess.erreurs, sess.warnings, cDApp, `Conflit Apprenant (${a.nom}).`);
+                if(a.equipe) {
+                    let plafond = Math.max(1, Math.ceil((effectifParEquipeTotal[a.equipe] || 0) / 2));
+                    if (effectifsPlacesParJour[d][a.equipe] > plafond) processAlerte(sess.erreurs, sess.warnings, cEquipe, `Continuité 50% dépassée [${a.equipe}].`);
+                }
+            });
+        }
+        
+        if(sess.apprenants.length > sess.jaugeMax) processAlerte(sess.erreurs, sess.warnings, cEffP, `Sur-effectif (> ${sess.jaugeMax}).`);
+        else if(sess.apprenants.length < (sess.jaugeMax / 2) && sess.apprenants.length > 0) processAlerte(sess.erreurs, sess.warnings, cEffM, `Sous-effectif (< 50%).`);
+
+        sess.erreurs = [...new Set(sess.erreurs)]; sess.warnings = [...new Set(sess.warnings)];
+        if(sess.erreurs.length > 0) sess.status = 'red'; else if(sess.warnings.length > 0) sess.status = 'orange';
+    });
+}
+
+function genererHtmlCarteSession(sess) {
+    let tooltipHtml = '';
+    if(sess.status !== 'green') {
+        let lis = sess.erreurs.map(e => `<div class="alert-item err">⛔ ${e}</div>`).join('') + sess.warnings.map(w => `<div class="alert-item warn">⚠️ ${w}</div>`).join('');
+        tooltipHtml = `<div class="alert-icon">⚠️<div class="alert-tooltip">${lis}</div></div>`;
+    }
+    let optS = sallesDisponibles.map(sa => `<option value="${sa.id}" ${sa.id===sess.idSalle?'selected':''}>${sa.nom}</option>`).join('');
+    let btnOutlookHtml = (sess.dateSess && sess.status !== 'red') ? `<button class="btn-ics" onclick="genererICS('${sess.idSess}')" title="Générer ICS">✉️</button>` : '';
+    let modTitle = sess.nomModuleDisplay || "Session";
+
+    return `
+    <div class="session-block">
+        <div class="session-header status-${sess.status}">
+            ${tooltipHtml}
+            <div class="inline-edit-row" style="padding-right: 14px;">
+                <div class="module-name-display" title="${modTitle}">${modTitle}</div>
+                <button class="btn-del" onclick="supprimerSession('${sess.idSess}')">🗑️</button>
+            </div>
+            <div class="inline-edit-row" style="margin-top:2px;">
+                <input type="date" value="${sess.dateSess}" onchange="modifierSession('${sess.idSess}', 'dateSess', this.value)" style="max-width:90px;">
+                <select class="salle-select" onchange="modifierSession('${sess.idSess}', 'idSalle', this.value)">${optS}</select>
+            </div>
+            <div class="inline-edit-row" style="margin-top:4px;">
+                <span style="font-size:10px; font-weight:bold; color:var(--text);">👥 ${sess.apprenants.length}/${sess.jaugeMax}</span>
+                ${btnOutlookHtml}
+            </div>
+        </div>
+        <div class="zone-drop" data-id="${sess.idSess}" data-accept="formateur" ondrop="dropKanban(event)" ondragover="allowDropKanban(event)" style="border-bottom:1px dashed #ccc; background:#fcfcfc;">
+            ${sess.formateurs.map(genererCarteAgentKanban).join('')}
+        </div>
+        <div class="zone-drop" data-id="${sess.idSess}" data-accept="apprenant" ondrop="dropKanban(event)" ondragover="allowDropKanban(event)">
+            ${sess.apprenants.map(genererCarteAgentKanban).join('')}
+        </div>
+    </div>`;
+}
+
+function mettreAJourUI() {
+    evaluerAlertesKanban();
+    const board = document.getElementById('kanban-board'); board.innerHTML = '';
+    
+    let mapDates = {};
+    sessionsData.forEach(s => { 
+        if(s.dateSess) { if(!mapDates[s.dateSess]) mapDates[s.dateSess] = []; mapDates[s.dateSess].push(s); }
+    });
+
+    Object.keys(mapDates).sort().forEach(date => {
+        let col = document.createElement('div'); col.className = 'column';
+        let html = `<div class="column-header-date">📅 ${formatDateFr(date)}</div><div class="column-body">`;
+        mapDates[date].forEach(sess => { html += genererHtmlCarteSession(sess); });
+        html += `</div>`; col.innerHTML = html; board.appendChild(col);
+    });
+
+    const dDeb = document.getElementById('inpDateDebut').value; const dFin = document.getElementById('inpDateFin').value;
+    const tousJoursOuvres = getArrayJoursOuvres(dDeb, dFin); const joursUtilises = Object.keys(mapDates);
+    const datesLibres = tousJoursOuvres.filter(d => !joursUtilises.includes(d));
+
+    let htmlDatesLibres = datesLibres.map(d => `<span class="date-badge">${formatDateFr(d)}</span>`).join('');
+    if(datesLibres.length === 0) htmlDatesLibres = `<span style="font-size:9px; color:#999; font-style:italic;">Aucune date libre.</span>`;
+    
+    document.getElementById('backlog-dates').innerHTML = htmlDatesLibres;
+    
+    fileAttente.formateurs = [...new Map(fileAttente.formateurs.map(item => [item.id, item])).values()];
+    fileAttente.apprenants = [...new Map(fileAttente.apprenants.map(item => [item.id, item])).values()];
+    
+    let maxRender = 300;
+    let htmlFormateurs = fileAttente.formateurs.slice(0, maxRender).map(genererCarteAgentKanban).join('');
+    if(fileAttente.formateurs.length > maxRender) htmlFormateurs += `<div style="padding:4px; font-size:10px; color:#999;">...et ${fileAttente.formateurs.length - maxRender} masqués.</div>`;
+    document.getElementById('backlog-formateurs').innerHTML = htmlFormateurs;
+
+    let htmlApprenants = fileAttente.apprenants.slice(0, maxRender).map(genererCarteAgentKanban).join('');
+    if(fileAttente.apprenants.length > maxRender) htmlApprenants += `<div style="padding:4px; font-size:10px; color:#999;">...et ${fileAttente.apprenants.length - maxRender} masqués.</div>`;
+    document.getElementById('backlog-apprenants').innerHTML = htmlApprenants;
+}
+
+function modifierSession(idSess, prop, value) { let sess = sessionsData.find(s => s.idSess === idSess); if(sess) { sess[prop] = value; mettreAJourUI(); } }
+function supprimerSession(idSess) {
+    let sessIdx = sessionsData.findIndex(s => s.idSess === idSess);
+    if(sessIdx > -1) {
+        let sess = sessionsData[sessIdx];
+        sess.formateurs.forEach(f => fileAttente.formateurs.push(f));
+        sess.apprenants.forEach(a => fileAttente.apprenants.push(a));
+        sessionsData.splice(sessIdx, 1);
+        mettreAJourUI();
+    }
+}
+
+function genererCarteAgentKanban(act) { 
+    let icon = act.type === 'formateur' ? '👨‍🏫' : '👤'; 
+    return `<div class="actor-card" id="kb-${act.id}-${Math.random()}" data-realid="${act.id}" data-type="${act.type}" draggable="true" ondragstart="dragKanban(event)"><span class="actor-icon">${icon}</span> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${act.nom} (${act.equipe})">${act.nom}</span></div>`; 
+}
+
+// --- DRAG & DROP KANBAN ---
+document.addEventListener('click', function(e) {
+    let card = e.target.closest('.actor-card');
+    if(card) { card.classList.toggle('selected'); } 
+    else if(!e.target.closest('.zone-drop')) { document.querySelectorAll('.actor-card.selected').forEach(c => c.classList.remove('selected')); }
+});
+
+function allowDropKanban(ev) { ev.preventDefault(); }
+function dragKanban(ev) { 
+    let target = ev.target.closest('.actor-card');
+    if(!target.classList.contains('selected')) {
+        document.querySelectorAll('.actor-card.selected').forEach(c => c.classList.remove('selected'));
+        target.classList.add('selected');
+    }
+    let selectedItems = Array.from(document.querySelectorAll('.actor-card.selected'));
+    let data = selectedItems.map(item => ({ idAct: item.getAttribute('data-realid'), sourceZone: item.closest('.zone-drop').getAttribute('data-id'), typeAct: item.getAttribute('data-type') }));
+    ev.dataTransfer.setData("application/json", JSON.stringify(data)); 
+}
+
+function dropKanban(ev) {
+    ev.preventDefault(); let targetZone = ev.target.closest('.zone-drop'); if(!targetZone) return;
+    
+    let destId = targetZone.getAttribute('data-id'); let destAccept = targetZone.getAttribute('data-accept');
+
+    let rawData = ev.dataTransfer.getData("application/json"); if(!rawData) return;
+    let items = JSON.parse(rawData); let moved = false;
+
+    items.forEach(itemData => {
+        let {idAct, typeAct, sourceZone} = itemData;
+        if(destAccept !== typeAct || sourceZone === destId) return;
+
+        let acteurDeplace = null;
+        if(sourceZone.startsWith('attente-')) { 
+            let arr = typeAct === 'formateur' ? fileAttente.formateurs : fileAttente.apprenants; 
+            let idx = arr.findIndex(a => a.id === idAct); 
+            if(idx>-1) acteurDeplace = arr.splice(idx, 1)[0]; 
+        } else { 
+            let sSess = sessionsData.find(s => s.idSess === sourceZone); 
+            if(sSess) {
+                let arr = typeAct === 'formateur' ? sSess.formateurs : sSess.apprenants; 
+                let idx = arr.findIndex(a => a.id === idAct); 
+                if(idx>-1) acteurDeplace = arr.splice(idx, 1)[0]; 
+            }
+        }
+        
+        if(acteurDeplace) {
+            if(destId.startsWith('attente-')) { 
+                typeAct === 'formateur' ? fileAttente.formateurs.push(acteurDeplace) : fileAttente.apprenants.push(acteurDeplace); 
+            } else { 
+                let dSess = sessionsData.find(s => s.idSess === destId); 
+                if(dSess) { typeAct === 'formateur' ? dSess.formateurs.push(acteurDeplace) : dSess.apprenants.push(acteurDeplace); }
+            }
+            moved = true;
+        }
+    });
+    if(moved) mettreAJourUI(); 
+}
+
+function exporterPlanningCSV() {
+    if(sessionsData.length === 0) return alert("Le planning est vide.");
+    let csv = "Date;Salle;Module;Role;Nom;Email;Equipe\n";
+    sessionsData.forEach(s => {
+        let nomS = sallesDisponibles.find(x => x.id === s.idSalle)?.nom || s.idSalle;
+        let nomM = formationsGlobal.find(x => x.id === s.idModule)?.nom || s.nomModuleDisplay || s.idModule;
+        s.formateurs.forEach(f => { csv += `${formatDateFr(s.dateSess)};${nomS};${nomM};Formateur;${f.nom};${f.email};${f.equipe}\n`; });
+        s.apprenants.forEach(a => { csv += `${formatDateFr(s.dateSess)};${nomS};${nomM};Apprenant;${a.nom};${a.email};${a.equipe}\n`; });
+    });
+    const link = document.createElement("a"); link.href = encodeURI("data:text/csv;charset=utf-8," + csv); link.download = "SIGF_Export_Convocations.csv"; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+function genererICS(idSess) {
+    let sess = sessionsData.find(s => s.idSess === idSess); if(!sess) return;
+    
+    let nomS = sallesDisponibles.find(x => x.id === sess.idSalle)?.nom || sess.idSalle;
+    let nomM = sess.nomModuleDisplay || "Session";
+    let dateBase = sess.dateSess.replace(/-/g, "");
+    let dtStart = dateBase + "T090000"; let dtEnd = dateBase + "T170000";   
+    let now = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    
+    let icsData = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Mairie de Lille//SIGF//FR\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\n";
+    icsData += `UID:${sess.idSess}-${Date.now()}@mairie-lille.fr\r\n`;
+    icsData += `DTSTAMP:${now}\r\n`;
+    icsData += `DTSTART;TZID=Europe/Paris:${dtStart}\r\n`;
+    icsData += `DTEND;TZID=Europe/Paris:${dtEnd}\r\n`;
+    icsData += `SUMMARY:Formation SIGF - ${nomM}\r\n`;
+    icsData += `LOCATION:${nomS}\r\n`;
+    icsData += `ORGANIZER;CN="${document.getElementById('inpSimAuteur').value}":mailto:sryzek@mairie-lille.fr\r\n`;
+    icsData += `DESCRIPTION:Bonjour,\\n\\nVous êtes convoqué(e) à la formation SIGF : ${nomM}.\\nLieu : ${nomS}.\\nHoraires : 09h00 - 17h00.\\n\\nCordialement.\r\n`;
+    icsData += "X-MICROSOFT-CDO-BUSYSTATUS:BUSY\r\n";
+    icsData += "X-MICROSOFT-CDO-INTENDEDSTATUS:BUSY\r\n";
+    
+    sess.formateurs.forEach(f => { if(f.email) icsData += `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="${f.nom}":mailto:${f.email}\r\n`; });
+    sess.apprenants.forEach(a => { if(a.email) icsData += `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="${a.nom}":mailto:${a.email}\r\n`; });
+    
+    icsData += "END:VEVENT\r\nEND:VCALENDAR";
+    
+    let blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+    let link = document.createElement('a'); link.href = window.URL.createObjectURL(blob);
+    link.download = `Invitation_${nomM.replace(/[^a-z0-9]/gi, '_')}_${dateBase}.ics`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadFromLocalStorage(); 
+    parseAllData(); 
+});
+</script>
+</body>
+</html>
